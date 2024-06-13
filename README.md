@@ -1,8 +1,9 @@
----
 # vim-comment-enhancer
 ## Introduction
-- 【[Chinese | 中文文档](README_zh.md)】
 This Vim plugin facilitates the quick addition of comments to selected blocks of code, including markers for added, deleted, and modified code. This is highly useful for code review and version control purposes.
+
+- 【[Chinese | 中文文档](README_zh.md)】
+
 ## Effect
 ```c
 /* BEGIN: Added by DefaultAuthor, 2024-06-11 PN: XXX Des: */
