@@ -36,13 +36,13 @@ function! ProcessComment(action)
   if l:start_line == l:end_line
     normal! `<I
     execute "normal! i" . l:prefix
-    execute "normal! \<Esc>o\<C-u>\<Esc>"
+    execute "normal! \<Esc>o\<Esc>"
     execute "normal! $a" . l:suffix
   else
     normal! `<I
     execute "normal! i" . l:prefix
     normal! `>
-    execute "normal! \<Esc>o\<C-u>\<Esc>"
+    execute "normal! \<Esc>o\<Esc>"
     execute "normal! a" . l:suffix
   endif
 endfunction
