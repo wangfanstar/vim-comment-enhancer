@@ -107,6 +107,57 @@ vnoremap <C-a> :<C-u>call AddComment()<CR>
 vnoremap <C-d> :<C-u>call DeleteComment()<CR>
 vnoremap <C-o> :<C-u>call ModifyComment()<CR>
 
+" 初始化用于追踪变量名的全局数组
+let g:which_key_vars = []
+
+" 定义一个函数来设置全局变量 g:author，并追踪变量名
+function! SetGlobalAuthor()
+    let g:author = input('Please enter the author name: ')
+    call add(g:which_key_vars, 'g:author')
+endfunction
+
+" 定义一个函数来设置全局变量 g:PN，并追踪变量名
+function! SetGlobalPN()
+    let g:PN = input('Please enter the PN: ')
+    call add(g:which_key_vars, 'g:PN')
+endfunction
+
+" 定义一个函数来设置全局变量 g:Des，并追踪变量名
+function! SetGlobalDes()
+    let g:Des = input('Please enter the Description: ')
+    call add(g:which_key_vars, 'g:Des')
+endfunction
+
+" 定义一个函数来显示设置过的全局变量
+function! ShowGlobalWhichKeyVars()
+    " 映射 key 到全局变量名
+    let l:key_mapping = {
+    \ '<leader>1': 'g:author',
+    \ '<leader>2': 'g:PN',
+    \ '<leader>3': 'g:Des'
+    \ }
+
+    " 遍历映射中的键和值
+    for [key, var_name] in items(l:key_mapping)
+        " 检查全局变量是否存在，如果存在则读取其值
+        if exists(var_name)
+            let value = get(g:, var_name[2:], "")
+        else
+            let value = ""
+        endif
+
+        " 打印键、变量名及其值
+        echo key . ' ' . var_name . ' : ' . value
+    endfor
+endfunction
+
+" 创建映射
+nnoremap <silent> <leader>1 :call SetGlobalAuthor()<CR>
+nnoremap <silent> <leader>2 :call SetGlobalPN()<CR>
+nnoremap <silent> <leader>3 :call SetGlobalDes()<CR>
+nnoremap <silent> <leader>0 :call ShowGlobalWhichKeyVars()<CR>
+
+
 function! GenerateFunctionComment()
     " 获取选中的文本
     let selection = getline("'<","'>")
