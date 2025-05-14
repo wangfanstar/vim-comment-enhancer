@@ -1,38 +1,43 @@
-" Ensure the script is only loaded once
+" =============================================================================
+" Comment-Enhancer.vim - 一个增强注释功能的Vim插件
+" 功能：
+" 1. 自动生成函数头注释
+" 2. 添加修改/添加/删除代码块的注释标记
+" 3. 从.author文件读取作者信息
+" =============================================================================
+
+" 防止重复加载插件
 if exists("g:loaded_comment_enhancer")
   finish
 endif
 let g:loaded_comment_enhancer = 1
 
-" Set default author if not set
+" 设置默认作者信息（如果未定义）
 if !exists("g:author")
   let g:author = "DefaultAuthor"
 endif
 
-" Set default PN and Des if not set
+" 设置默认PN和Des值（如果未定义）
 if !exists("g:PN")
   let g:PN = "XXX"
 endif
-
 if !exists("g:Des")
   let g:Des = "YYY"
 endif
 
+" 从.author文件更新作者信息
 function! UpdateAuthorFromAuthorFile()
-  " 初始化全局变量为 "未设置"
+  " 初始化全局变量
   let g:author = '未设置'
   let g:PN = '未设置'
   let g:Des = '未设置'
-
+  
+  " 尝试读取.author文件
   if filereadable(".author")
-    " 读取文件内容
     let l:author_content = readfile(".author")
-    " 遍历每一行内容
+    " 解析文件内容
     for line in l:author_content
-      " 去掉行首和行尾的空白
       let line = trim(line)
-      
-      " 查找并处理每行
       if line =~ '^author='
         let g:author = substitute(line, '^author=', '', '')
       elseif line =~ '^pn='
@@ -44,37 +49,46 @@ function! UpdateAuthorFromAuthorFile()
   else
     echom "File .author not found"
   endif
-
-  " 打印变量的值，显示是否已设置
+  
+  " 显示当前设置的值
   echom "Author: " . g:author
   echom "PN: " . g:PN
   echom "Des: " . g:Des
 endfunction
 
-
+" 启动时自动更新作者信息
 call UpdateAuthorFromAuthorFile()
 
-" 定义快捷键 <leader>9 来调用 UpdateAuthorFromAuthorFile 函数
+" 映射<leader>9键更新作者信息
 nnoremap <leader>9 :call UpdateAuthorFromAuthorFile()<CR>
 
+" 获取当前日期的辅助函数
 function! GetCurrentDate()
   return strftime("%Y-%m-%d")
 endfunction
 
+" 处理代码块注释（添加/删除/修改标记）
 function! ProcessComment(action)
+  " 获取当前日期
   let l:current_date = GetCurrentDate()
-  let l:prefix = "/* BEGIN: " . a:action . " by " . g:author . ", " . l:current_date . " PN:"."HSV7D". g:PN . " Des: " . g:Des . " */\n"
-  let l:suffix = "/* END  : " . a:action . " by " . g:author . ", " . l:current_date . " PN:"."HSV7D". g:PN . " */"
   
+  " 构建注释前缀和后缀
+  let l:prefix = "/* BEGIN: " . a:action . " by " . g:author . ", " . l:current_date . " PN:" . "HSV7D" . g:PN . " Des: " . g:Des . " */\n"
+  let l:suffix = "/* END  : " . a:action . " by " . g:author . ", " . l:current_date . " PN:" . "HSV7D" . g:PN . " */"
+  
+  " 获取选择的行范围
   let l:start_line = line("'<")
   let l:end_line = line("'>")
   
+  " 根据选择的是单行还是多行进行不同处理
   if l:start_line == l:end_line
+    " 单行情况
     normal! `<I
     execute "normal! i" . l:prefix
     execute "normal! \<Esc>o\<Esc>"
     execute "normal! $a" . l:suffix
   else
+    " 多行情况
     normal! `<I
     execute "normal! i" . l:prefix
     normal! `>
@@ -82,166 +96,220 @@ function! ProcessComment(action)
     execute "normal! a" . l:suffix
   endif
   
-  " Select the modified lines in Visual mode and then format
-  let l:current_indent = indent(line('.') - 1)  " 获取上一行的缩进量
+  " 处理缩进
+  let l:current_indent = indent(line('.') - 1)
   if l:current_indent > 0
-	execute "normal! V" . l:start_line . "G="
+    execute "normal! V" . l:start_line . "G="
   endif
-
 endfunction
 
+" 添加代码块的函数
 function! AddComment()
   call ProcessComment('Added')
 endfunction
 
+" 删除代码块的函数
 function! DeleteComment()
   call ProcessComment('Deleted')
 endfunction
 
+" 修改代码块的函数
 function! ModifyComment()
   call ProcessComment('Modified')
 endfunction
 
-" Map shortcuts
+" 可视模式下的键映射
 vnoremap <C-a> :<C-u>call AddComment()<CR>
 vnoremap <C-d> :<C-u>call DeleteComment()<CR>
 vnoremap <C-o> :<C-u>call ModifyComment()<CR>
 
-" 初始化用于追踪变量名的全局数组
+" 初始化用于追踪变量名的数组
 let g:which_key_vars = []
 
-" 定义一个函数来设置全局变量 g:author，并追踪变量名
+" 设置全局作者名称
 function! SetGlobalAuthor()
     let g:author = input('Please enter the author name: ')
     call add(g:which_key_vars, 'g:author')
 endfunction
 
-" 定义一个函数来设置全局变量 g:PN，并追踪变量名
+" 设置全局PN值
 function! SetGlobalPN()
     let g:PN = input('Please enter the PN: ')
     call add(g:which_key_vars, 'g:PN')
 endfunction
 
-" 定义一个函数来设置全局变量 g:Des，并追踪变量名
+" 设置全局Des值
 function! SetGlobalDes()
     let g:Des = input('Please enter the Description: ')
     call add(g:which_key_vars, 'g:Des')
 endfunction
 
-" 定义一个函数来显示设置过的全局变量
+" 显示已设置的全局变量
 function! ShowGlobalWhichKeyVars()
-    " 映射 key 到全局变量名
+    " 映射快捷键到全局变量名
     let l:key_mapping = {
     \ '<leader>1': 'g:author',
     \ '<leader>2': 'g:PN',
     \ '<leader>3': 'g:Des'
     \ }
-
-    " 遍历映射中的键和值
+    
+    " 显示每个变量的当前值
     for [key, var_name] in items(l:key_mapping)
-        " 检查全局变量是否存在，如果存在则读取其值
         if exists(var_name)
             let value = get(g:, var_name[2:], "")
         else
             let value = ""
         endif
-
-        " 打印键、变量名及其值
         echo key . ' ' . var_name . ' : ' . value
     endfor
 endfunction
 
-" 创建映射
+" 快捷键映射
 nnoremap <silent> <leader>1 :call SetGlobalAuthor()<CR>
 nnoremap <silent> <leader>2 :call SetGlobalPN()<CR>
 nnoremap <silent> <leader>3 :call SetGlobalDes()<CR>
 nnoremap <silent> <leader>0 :call ShowGlobalWhichKeyVars()<CR>
 
-
-function! GenerateFunctionComment()
-    " 获取选中的文本
-    let selection = getline("'<","'>")
-    let func_decl = join(selection, " ")
-
-    " 解析函数声明
-    let parts = split(func_decl)
-    let return_type = parts[0]
-    let func_name = split(parts[1], '(')[0]
+" 生成函数头注释（修正版）
+" 生成函数头注释（修正版）
+function! GenerateFunctionComment() range
+    " 获取选中的所有行作为函数声明
+    let decl_lines = getline(a:firstline, a:lastline)
+    let decl = join(decl_lines, ' ')
     
-    " 提取参数
-    let params_start = stridx(func_decl, '(') + 1
-    let params_end = strridx(func_decl, ')')
-    let params = strpart(func_decl, params_start, params_end - params_start)
-    let param_list = split(params, ',')
+    " 解析函数声明部分
+    let parts = split(decl)
+    if len(parts) < 2
+        echom "[Comment-Enhancer] 函数声明格式不正确"
+        return
+    endif
+    
+    " 提取返回类型和函数名
+    let return_type = parts[0]
+    let func_name = substitute(parts[1], '(.*', '', '')
 
-    " 生成注释
-    let comment = [
-        \ '/*****************************************************************************',
-        \ ' Func Name    : ' . func_name,
-        \ ' Date Created : ' . strftime('%Y/%m/%d'),
-        \ ' Author       : ' . g:author,
-        \ ' Description  : '
-    \ ]
-
-    let input_params = []
-    let output_params = []
-
-    " 添加输入参数和输出参数
-    for param in param_list
-        let param = substitute(param, '^\s*', '', '')  " 移除开头的空白
-        let param_parts = split(param)
-        let param_type = join(param_parts[1:-2], ' ')
-        let param_name = param_parts[-1]
-        let clean_param = param_type . ' ' . param_name
-        if param_parts[0] =~? '\v^(IN|INOUT)'
-            call add(input_params, clean_param)
-        endif
-        if param_parts[0] =~? '\v^(OUT|INOUT)'
-            call add(output_params, clean_param)
+    " 提取参数字符串 - 改进正则表达式以匹配单行函数声明
+    let param_start = stridx(decl, '(')
+    let param_end = strridx(decl, ')')
+    
+    if param_start == -1 || param_end == -1 || param_start >= param_end
+        let param_str = ""
+    else
+        let param_str = strpart(decl, param_start + 1, param_end - param_start - 1)
+    endif
+    
+    " 判断插入位置
+    let ins_line = a:firstline - 1
+    let exist = 0
+    
+    " 检查是否已存在该函数的注释
+    let min_line = ins_line > 100 ? ins_line - 100 : 1
+    for i in range(min_line, ins_line)
+        if getline(i) =~? '^\s*Func Name\s*:\s*' . func_name . '\s*'
+            let exist = 1
+            break
         endif
     endfor
+    
+    if exist
+        echom '[Comment-Enhancer] 已存在函数头，不重复生成'
+        return
+    endif
 
-    " 添加输入参数
-    if len(input_params) == 0
+    " 开始构建函数头注释
+    let comment = [
+    \ '/*****************************************************************************',
+    \ ' Func Name    : ' . func_name,
+    \ ' Date Created : ' . strftime('%Y/%m/%d'),
+    \ ' Author       : ' . g:author,
+    \ ' Description  : '
+    \ ]
+
+    " 参数分类容器
+    let ins = []
+    let outs = []
+    
+    " 如果存在参数，则解析参数
+    if !empty(param_str)
+        let param_list = split(param_str, ',')
+        " 处理每个参数
+        for p in param_list
+            " 清理参数字符串前后的空白和括号
+            let p = substitute(p, '^\s*\(.*\)\s*$', '\1', '')
+            if empty(p)
+                continue
+            endif
+            
+            let pp = split(p)
+            if len(pp) < 2
+                continue
+            endif
+            
+            " 识别参数方向（输入/输出）
+            let flag = toupper(pp[0])
+            
+            " 处理不同格式的参数声明
+            if len(pp) == 2
+                let typ = ""
+                let name = pp[1]
+            else
+                let typ = join(pp[1:-2], ' ')
+                let name = pp[-1]
+            endif
+            
+            " 构造参数描述文本（类型+名称）
+            let txt = empty(typ) ? name : typ . ' ' . name
+            
+            " 根据方向分类参数
+            if flag =~# '\v^(IN|INOUT)'
+                call add(ins, txt)
+            endif
+            
+            if flag =~# '\v^(OUT|INOUT)'
+                call add(outs, txt)
+            endif
+        endfor
+    endif
+
+    " 输入参数处理
+    if empty(ins)
         call add(comment, ' Input        : None')
-    elseif len(input_params) == 1
-        call add(comment, ' Input        : ' . input_params[0])
     else
-        call add(comment, ' Input        : ' . input_params[0])
-        for param in input_params[1:]
-            call add(comment, '                ' . param)
+        call add(comment, ' Input        : ' . remove(ins, 0))
+        for p in ins
+            call add(comment, '                ' . p)
         endfor
     endif
 
-    " 添加输出参数
-    if len(output_params) == 0
+    " 输出参数处理
+    if empty(outs)
         call add(comment, ' Output       : None')
-    elseif len(output_params) == 1
-        call add(comment, ' Output       : ' . output_params[0])
     else
-        call add(comment, ' Output       : ' . output_params[0])
-        for param in output_params[1:]
-            call add(comment, '                ' . param)
+        call add(comment, ' Output       : ' . remove(outs, 0))
+        for p in outs
+            call add(comment, '                ' . p)
         endfor
     endif
 
-    " 添加返回值
-    if return_type ==? 'ULONG'
+    " 返回值处理
+    if return_type ==# 'ULONG'
         call add(comment, ' Return       : ERROR_SUCCESS 操作成功')
         call add(comment, '                ERROR_FAILED  操作失败')
+    elseif return_type ==# 'BOOL_T'
+        call add(comment, ' Return       : BOOL_TRUE')
+        call add(comment, '                BOOL_FALSE')
     else
         call add(comment, ' Return       : ' . return_type)
     endif
 
+    " 注意事项和结束标记
     call add(comment, ' Caution      :')
     call add(comment, '*****************************************************************************/')
 
-    " 插入注释，只插入一次
-    call append(line("'<")-1, comment)
-
-    " 移动光标到插入的注释上方
-    call cursor(line("'<")-1, 1)
+    " 插入注释到目标位置
+    call append(ins_line, comment)
+    call cursor(ins_line + 1, 1)
 endfunction
 
-" 映射快捷键，使用 <silent> 来避免重复执行
+" 在可视模式下映射<leader>f生成函数头注释
 vnoremap <silent> <leader>f :call GenerateFunctionComment()<CR>
