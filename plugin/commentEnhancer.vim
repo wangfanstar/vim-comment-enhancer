@@ -27,10 +27,14 @@ endif
 
 " 从.author文件更新作者信息
 function! UpdateAuthorFromAuthorFile()
-  " 初始化全局变量
-  let g:author = '未设置'
-  let g:PN = '未设置'
-  let g:Des = '未设置'
+  let l:old_author = g:author
+  let l:old_pn = g:PN
+  let l:old_des = g:Des
+  
+  " 初始化全局变量（如果没有找到文件，将使用现有值）
+  let g:author = l:old_author
+  let g:PN = l:old_pn
+  let g:Des = l:old_des
   
   " 尝试读取.author文件
   if filereadable(".author")
@@ -171,7 +175,6 @@ nnoremap <silent> <leader>3 :call SetGlobalDes()<CR>
 nnoremap <silent> <leader>0 :call ShowGlobalWhichKeyVars()<CR>
 
 " 生成函数头注释（修正版）
-" 生成函数头注释（修正版）
 function! GenerateFunctionComment() range
     " 获取选中的所有行作为函数声明
     let decl_lines = getline(a:firstline, a:lastline)
@@ -184,47 +187,55 @@ function! GenerateFunctionComment() range
         return
     endif
     
-    " 提取返回类型和函数名
-    let return_type = parts[0]
-    let func_name = substitute(parts[1], '(.*', '', '')
-
-    " 提取参数字符串 - 改进正则表达式以匹配单行函数声明
-    let param_start = stridx(decl, '(')
-    let param_end = strridx(decl, ')')
+    " 常见函数修饰符列表
+    let modifiers = ['STATIC', 'static', 'inline', 'extern', 'virtual', 'explicit', 'friend', 'constexpr', 'volatile', 'const']
     
-    if param_start == -1 || param_end == -1 || param_start >= param_end
-        let param_str = ""
-    else
-        let param_str = strpart(decl, param_start + 1, param_end - param_start - 1)
-    endif
+    " 跳过所有修饰符，查找返回类型和函数名
+    let i = 0
+    while i < len(parts) && index(modifiers, tolower(parts[i])) >= 0
+        let i += 1
+    endwhile
     
-    " 判断插入位置
-    let ins_line = a:firstline - 1
-    let exist = 0
-    
-    " 检查是否已存在该函数的注释
-    let min_line = ins_line > 100 ? ins_line - 100 : 1
-    for i in range(min_line, ins_line)
-        if getline(i) =~? '^\s*Func Name\s*:\s*' . func_name . '\s*'
-            let exist = 1
-            break
-        endif
-    endfor
-    
-    if exist
-        echom '[Comment-Enhancer] 已存在函数头，不重复生成'
+    " 如果全是修饰符或没有足够元素，报错
+    if i >= len(parts) - 1
+        echom "[Comment-Enhancer] 无法识别函数返回类型和名称"
         return
     endif
-
-    " 开始构建函数头注释
-    let comment = [
-    \ '/*****************************************************************************',
-    \ ' Func Name    : ' . func_name,
-    \ ' Date Created : ' . strftime('%Y/%m/%d'),
-    \ ' Author       : ' . g:author,
-    \ ' Description  : '
-    \ ]
-
+    
+    " 获取返回类型 - 可能有多个单词组成
+    let return_type_parts = []
+    let j = i
+    
+    " 查找函数名（含左括号的元素）
+    while j < len(parts) && parts[j] !~ '('
+        call add(return_type_parts, parts[j])
+        let j += 1
+    endwhile
+    
+    " 如果找不到左括号，使用最后一个元素作为函数名
+    if j >= len(parts)
+        let j = len(parts) - 1
+        let return_type_parts = return_type_parts[:-2]  " 移除最后一个元素作为函数名
+    endif
+    
+    " 提取函数名和返回类型
+    let func_name_part = j < len(parts) ? parts[j] : parts[-1]
+    let func_name = substitute(func_name_part, '(.*', '', '')
+    
+    " 如果返回类型部分为空，则使用第一个非修饰符元素
+    if empty(return_type_parts) && i < len(parts)
+        let return_type = parts[i]
+    else
+        let return_type = join(return_type_parts, ' ')
+    endif
+    
+    " 提取参数字符串
+    let param_str = matchstr(decl, '\v\(.*\)')
+    
+    " 去除参数周围的括号和空格
+    let param_str = substitute(param_str, '^\s*(\s*', '', '')
+    let param_str = substitute(param_str, '\s*)\s*$', '', '')  " 添加$和闭合引号
+    
     " 参数分类容器
     let ins = []
     let outs = []
@@ -235,7 +246,9 @@ function! GenerateFunctionComment() range
         " 处理每个参数
         for p in param_list
             " 清理参数字符串前后的空白和括号
-            let p = substitute(p, '^\s*\(.*\)\s*$', '\1', '')
+            let p = substitute(p, '^\s\+', '', '')  " 去掉开头的空白
+            let p = substitute(p, '\s\+$', '', '')  " 补全正则表达式
+            let p = substitute(p, '[()]', '', 'g')  " 去除所有括号残留
             if empty(p)
                 continue
             endif
@@ -270,6 +283,36 @@ function! GenerateFunctionComment() range
             endif
         endfor
     endif
+
+    " 判断插入位置
+    let ins_line = a:firstline - 1
+    let exist = 0
+    
+    " 检查是否已存在该函数的注释
+    let min_line = ins_line > 100 ? ins_line - 100 : 1
+    for i in range(min_line, ins_line)
+        if getline(i) =~? '^\s*Func Name\s*:\s*' . func_name . '\s*'
+            let exist = 1
+            break
+        endif
+    endfor
+    
+    if exist
+        echom '[Comment-Enhancer] 已存在函数头，不重复生成'
+        return
+    endif
+
+    " 添加调试信息（可选）
+    " echom "[Debug] 返回类型: " . return_type . " 函数名: " . func_name
+
+    " 开始构建函数头注释
+    let comment = [
+    \ '/*****************************************************************************',
+    \ ' Func Name    : ' . func_name,
+    \ ' Date Created : ' . strftime('%Y/%m/%d'),
+    \ ' Author       : ' . g:author,
+    \ ' Description  : '
+    \ ]
 
     " 输入参数处理
     if empty(ins)
